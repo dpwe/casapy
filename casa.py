@@ -42,12 +42,11 @@ class casa(object):
     self.ac_hop = config["ac_hop_sec"]
     self.srate = config["sample_rate"]
 
-
   def correlogram(self, audio):
     """Calculate subband autocorrelation."""
     subbands, freqs = sbpca.subbands(audio, self.srate, self.fbank)
     correlogram = sbpca.autoco(subbands, self.srate,
-                               self.ac_win, self.ac_hop, normalize=False)
+                               self.ac_win, self.ac_hop)
     return correlogram
 
   def env_for_pitch(self, correlogram, pitch_hz):
