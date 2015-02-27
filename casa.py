@@ -81,14 +81,15 @@ class casa(object):
       "Mask rows %d != num subband filters %d" % (n_subbands,
                                                   len(self.fbank.b_i)))
     audio_out = np.zeros(len(audio))
-    print "n_audio=", n_audio, "n_frame=", n_frames, "win_samps=", win_samps
+    print "n_audio/win_samps=", n_audio/win_samps, "n_frame=", n_frames, "win_samps=", win_samps
     for subband in xrange(n_subbands):
       subband_audio = scipy.signal.lfilter(self.fbank.b_i[subband, ],
                                            self.fbank.a_i[subband, ],
                                            audio)
       interpolator = scipy.interpolate.interp1d(np.r_[-1.0,
-                                                      np.arange(float(n_frames))],
-                                                np.r_[0.0, mask[subband, ]])
+                                                      np.arange(n_frames+1)],
+                                                np.r_[0.0, mask[subband, :],
+                                                      0.0])
       gains = interpolator(np.arange(float(n_audio))/win_samps)
       audio_out += gains * subband_audio
     return audio_out
