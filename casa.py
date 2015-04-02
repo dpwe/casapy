@@ -59,11 +59,12 @@ class casa(object):
     env = np.zeros((n_subbands, n_frames))
     for time_ in range(n_frames):
       if pitch_hz[time_] > 0:
-        env[:, time_] = (correlogram[:, pitch_lag_bins[time_], time_] /
-                         correlogram[:, 0, time_])
+        env[:, time_] = (correlogram[:, pitch_lag_bins[time_], time_])
+        # acg bins above 0 are already normalized by E, so no need to
+        # / correlogram[:, 0, time_])
     return env
 
-  def apply_tf_mask(self, audio, mask):
+  def apply_tf_mask(self, audio, mask, silent_bands=()):
     """Modulate subband-filtered audio according to a mask.
 
     Args:
@@ -81,16 +82,25 @@ class casa(object):
       "Mask rows %d != num subband filters %d" % (n_subbands,
                                                   len(self.fbank.b_i)))
     audio_out = np.zeros(len(audio))
-    print "n_audio/win_samps=", n_audio/win_samps, "n_frame=", n_frames, "win_samps=", win_samps
+    print "n_audio/win_samps=", float(n_audio)/win_samps, "n_frame=", n_frames, "win_samps=", win_samps
     for subband in xrange(n_subbands):
       subband_audio = scipy.signal.lfilter(self.fbank.b_i[subband, ],
                                            self.fbank.a_i[subband, ],
                                            audio)
-      interpolator = scipy.interpolate.interp1d(np.r_[-1.0,
-                                                      np.arange(n_frames+1)],
-                                                np.r_[0.0, mask[subband, :],
-                                                      0.0])
-      gains = interpolator(np.arange(float(n_audio))/win_samps)
+      # The mask value in column N=0..n_frames-1 corresponds most closely to
+      # sample time win_duration/2 + hop_duration * N.  But make sure we can
+      # go off the ends safely too.
+      pad_frames = 5
+      interp_t = ((self.ac_win/2.0)/self.ac_hop +
+                  np.arange(-pad_frames, n_frames + pad_frames))
+      interp_f = np.hstack([np.zeros(pad_frames),
+                            mask[subband, :],
+                            np.zeros(pad_frames)])
+      interpolator = scipy.interpolate.interp1d(interp_t, interp_f)
+      times = np.arange(float(n_audio))/win_samps
+      gains = interpolator(times)
+      if subband in silent_bands:
+        gains *= 0.0
       audio_out += gains * subband_audio
     return audio_out
 
